@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ua">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Список сеансів</title>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+<body style="padding: 20px">
+<h2>Список сеансів</h2>
+<form name="sessionForm">
+    <input type="hidden" name="id" value="0" />
+    <div class="form-group">
+        <label>
+            Назва фільму:
+            <input class="form-control" name="movie"/>
+        </label>
+    </div>
+    <div class="form-group">
+        <label>
+            Дата:
+            <input type="date" class="form-control" name="date" />
+        </label>
+    </div>
+    <div class="form-group">
+        <label>
+            Час:
+            <input type="time" class="form-control" name="time" />
+        </label>
+    </div>
+    <div class="panel-body">
+        <button type="submit" class="btn btn-sm btn-primary">Зберегти</button>
+        <a id="reset" class="btn btn-sm btn-primary">Скинути</a>
+    </div>
+</form>
+<table class="table table-condensed table-striped table-bordered">
+    <thead><tr><th>Id</th><th>Назва фільму</th><th>Дата</th><th>Час</th><th></th></tr></thead>
+    <tbody>
+    </tbody>
+</table>
+
+<script>
+    // Отримання сеансів
+    async function GetSessions() {
+        // надсилає запит і отримуємо відповідь
+        const response = await fetch("/api/sessions", {
+            method: "GET",
+            headers: { "Accept": "application/json" }
+        });
+        // якщо запит пройшов нормально
+        if (response.ok === true) {
+            // Отримуємо дані
+            const sessions = await response.json();
+            let rows = document.querySelector("tbody");
+            sessions.forEach(user => {
+                // додаємо отримані елементи до таблиці
+                rows.append(row(user));
+            });
+        }
+    }
+    // Отримання одного сеансу
+    async function GetSession(id) {
+        const response = await fetch("/api/sessions/" + id, {
+            method: "GET",
+            headers: { "Accept": "application/json" }
+        });
+        if (response.ok === true) {
+            const session = await response.json();
+            const form = document.forms["sessionForm"];
+            form.elements["id"].value = session._id;
+            form.elements["movie"].value = session.movie;
+            form.elements["date"].value = session.date;
+            form.elements["time"].value = session.time;
+        }
+    }
+    // Додавання сесії
+    async function CreateSession(movieName, dateM, timeM) {
+
+        const response = await fetch("api/sessions", {
+            method: "POST",
+            headers: { "Accept": "application/json", "Content-Type": "application/json" },
+            body: JSON.stringify({
+                movie: movieName,
+                date: dateM,
+                time: timeM
+            })
+        });
+        if (response.ok === true) {
+            const session = await response.json();
+            reset();
+            document.querySelector("tbody").append(row(session));
+        }
+    }
+    // Зміна сесії
+    async function EditSession(sessionId, sessionMovieName, sessionDate, sessionTime) {
+        const response = await fetch("api/sessions", {
+            method: "PUT",
+            headers: { "Accept": "application/json", "Content-Type": "application/json" },
+            body: JSON.stringify({
+                id: sessionId,
+                movie: sessionMovieName,
+                date: sessionDate,
+                time: sessionTime
+            })
+        });
+        if (response.ok == true) {
+            const session = await response.json();
+            reset();
+            console.log(row(session));
+            document.querySelector("tr[data-rowid='" + session._id + "']").replaceWith(row(session));
+        }
+    }
+    // Видалення сесії
+    async function DeleteSession(id) {
+        const response = await fetch("/api/sessions/" + id, {
+            method: "DELETE",
+            headers: { "Accept": "application/json" }
+        });
+        if (response.ok === true) {
+            const session = await response.json();
+            document.querySelector("tr[data-rowid='" + session._id + "']").remove();
+        }
+    }
+
+    // скидання форми
+    function reset() {
+        const form = document.forms["sessionForm"];
+        form.reset();
+        form.elements["id"].value = 0;
+    }
+    // Створення рядка для таблиці
+    function row(session) {
+
+        const tr = document.createElement("tr");
+        tr.setAttribute("data-rowid", session._id);
+
+        const idTd = document.createElement("td");
+        idTd.append(session._id);
+        tr.append(idTd);
+
+        const movieTd = document.createElement("td");
+        movieTd.append(session.movie);
+        tr.append(movieTd);
+
+        const dateTd = document.createElement("td");
+        dateTd.append(session.date);
+        tr.append(dateTd);
+
+        const timeTd = document.createElement("td");
+        timeTd.append(session.time);
+        tr.append(timeTd);
+
+        const linksTd = document.createElement("td");
+
+        const editLink = document.createElement("a");
+        editLink.setAttribute("data-id", session._id);
+        editLink.setAttribute("style", "cursor:pointer;padding:15px;");
+        editLink.append("Змінити");
+        editLink.addEventListener("click", e => {
+            e.preventDefault();
+            GetSession(session._id);
+        });
+        linksTd.append(editLink);
+
+        const removeLink = document.createElement("a");
+        removeLink.setAttribute("data-id", session._id);
+        removeLink.setAttribute("style", "cursor:pointer;padding:15px;");
+        removeLink.append("Видалити");
+        removeLink.addEventListener("click", e => {
+
+            e.preventDefault();
+            DeleteSession(session._id);
+        });
+
+        linksTd.append(removeLink);
+        tr.appendChild(linksTd);
+
+        return tr;
+    }
+    // скидання значень форми
+    document.getElementById("reset").click(function(e) {
+
+        e.preventDefault();
+        reset();
+    })
+
+    // Відправлення форми
+    document.forms["sessionForm"].addEventListener("submit", e => {
+        e.preventDefault();
+        const form = document.forms["sessionForm"];
+        const id = form.elements["id"].value;
+        const movieName = form.elements["movie"].value;
+        const dateM = form.elements["date"].value;
+        const timeM = form.elements["time"].value;
+        if (id == 0)
+            CreateSession(movieName, dateM, timeM);
+        else
+            EditSession(id, movieName, dateM, timeM);
+    });
+
+    // завантаження сесій
+    GetSessions();
+</script>
+</body>
+</html>
